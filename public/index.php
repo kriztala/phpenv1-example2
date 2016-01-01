@@ -1,17 +1,7 @@
 <?php
 
 require_once '../vendor/autoload.php';
-
-echo "Hello World";
-
-/*$array = [1, "apple", 2, "foo", "bar"];
-
-var_dump($array);
-dump($array);
-$database = new medoo([
-    'database_type' => 'sqlite',
-    'database_file' => '../storage/database.db'
-]);*/
+use Particle\Validator\Validator;
 
 $file = '../storage/database.db';
 if (is_writable('../storage/database.local.db')) {
@@ -21,14 +11,46 @@ $database = new medoo([
     'database_type' => 'sqlite',
     'database_file' => $file
 ]);
-
 $comment = new SitePoint\Comment($database);
+
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $v = new Validator();
+    $v->required('name')->lengthBetween(1, 100)->alnum(true);
+    $v->required('email')->email()->lengthBetween(5, 255);
+    $v->required('comment')->lengthBetween(10, null);
+
+    $result = $v->validate($_POST);
+
+    if ($result->isValid()) {
+        try {
+           $comment
+                ->setName($_POST['name'])
+                ->setEmail($_POST['email'])
+                ->setComment($_POST['comment'])
+                ->save();
+
+            header('Location: /');
+            return;
+
+            } catch (\Exception $e) {
+                die($e->getMessage());
+        }
+    } else {
+        dump($result->getMessages());
+    }
+}
+
+
+/*$comment = new SitePoint\Comment($database);
 $comment->setEmail('bruno@skvorc.me')
   ->setName('Bruno Skvorc')
   ->setComment('It works!fuck')
   ->setComment('Hooray! Saving comments works!')
-  ->save();
+  ->save();*/
 //dump($database->error());
+
+
 ?>
 <!doctype html>
 <html class="no-js" lang="">
@@ -44,6 +66,7 @@ $comment->setEmail('bruno@skvorc.me')
 
         <link rel="stylesheet" href="css/normalize.css">
         <link rel="stylesheet" href="css/main.css">
+        <link rel="stylesheet" href="css/custom.css">
         <script src="js/vendor/modernizr-2.8.3.min.js"></script>
     </head>
     <body>
@@ -52,7 +75,22 @@ $comment->setEmail('bruno@skvorc.me')
         <![endif]-->
 
         <!-- Add your site or application content here -->
-        <p>Hello world! This is HTML5 Boilerplate.</p>
+
+        <?php foreach ($comment->findAll() as $comment) : ?>
+
+            <div class="comment">
+                <h3>On <?= $comment->getSubmissionDate() ?>, <?= $comment->getName() ?> wrote:</h3>
+                <p><?= $comment->getComment(); ?></p>
+            </div>
+
+        <?php endforeach; ?>
+        
+        <form method="post">
+            <label>Name: <input type="text" name="name" placeholder="Your name"></label>
+            <label>Email: <input type="text" name="email" placeholder="your@email.com"></label>
+            <label>Comment: <textarea name="comment" cols="30" rows="10"></textarea></label>
+            <input type="submit" value="Save">
+        </form>
 
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
         <script>window.jQuery || document.write('<script src="js/vendor/jquery-1.11.3.min.js"><\/script>')</script>
